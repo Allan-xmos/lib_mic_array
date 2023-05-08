@@ -51,3 +51,23 @@ def cic(x_pdm, decimation, stages):
 # run cic once so that numba can do its thing
 x = np.random.randint(low=-1, high=1, size=100, dtype=cic_dtype)
 _ = cic(x[:100], 3_027_000, 4)
+
+def half_band_calc_filter(fs, f_pb, N):
+    assert f_pb < fs/4, "A half-band filter requires that Fpb is smaller than Fs/4"
+    assert N % 2 == 0, "Filter order N must be a multiple of 2"
+    assert N % 4 != 0, "Filter order N must not be a multiple of 4"
+
+    g = spsig.remez(
+            N//2+1,
+            [0., 2*f_pb/fs, .5, .5],
+            [1, 0],
+            [1, 1]
+            )
+
+    zeros = np.zeros(N//2+1)
+
+    h = [item for sublist in zip(g, zeros) for item in sublist][:-1]
+    h[N//2] = 1.0
+    h = np.array(h)/2
+
+    return h
