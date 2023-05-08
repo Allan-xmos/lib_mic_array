@@ -3,7 +3,6 @@ import scipy.signal as spsig
 from numba import njit
 
 def cic_impulse(decimation, order, differential_delay=1):
-
     mov_avg_length  = decimation * differential_delay
 
     # Single stage CIC filter
