@@ -6,11 +6,11 @@ import scipy.signal as spsig
 import numpy as np
 import matplotlib.pyplot as plt
 
-# i cant be bothered to get the import working properly right now
+# # i cant be bothered to get the import working properly right now
 # import sys
 # sys.path.append(str(Path('.').resolve()))
 
-from lib_mic_array.script.cic.cic_filter import cic_ma, cic
+from lib_mic_array.script.cic.cic_filter import cic_ma, cic, cic_impulse
 
 DEFAULT_FILTERS_FILE = Path(__file__).parents[2] / "tests" / "signal" / "BasicMicArray" / "default_filters.pkl"
 
@@ -53,5 +53,16 @@ for order in [1, 4]:
 ax[1].set_xlim(f[0], f[-1])
 plt.legend()
 
-plt.savefig('tmp.png')
+plt.savefig('tmp_cic_ma_vs_true.png')
 
+fg, ax = plt.subplots(1)
+worN = 4096
+f, H = spsig.freqz(s1_coef, [1], worN=worN, fs=fs_start)
+ax.plot(f, 20 * np.log10(np.abs(H)), label='S1 lib_mic_array')
+for order in [1, 2, 3, 4]:
+    b = cic_impulse(s1_df, order)
+    f, H = spsig.freqz(b, [1], worN=worN, fs=fs_start)
+    ax.plot(f, 20 * np.log10(np.abs(H)), label=f'cic order {order}')
+
+plt.legend()
+plt.savefig('tmp_cic_vs_s1_lib_mic_array.png')
