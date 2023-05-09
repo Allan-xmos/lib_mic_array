@@ -19,33 +19,33 @@ def cic_impulse(decimation, order, differential_delay=1):
 
 def cic_ma(x_pdm, decimation, stages):
     b = cic_impulse(decimation, stages)
-    y = spsig.lfilter(b, [1], x_pdm)[::decimation]
-    # y = spsig.fftconvolve(x_pdm, b)[::decimation]
+    y = spsig.resample_poly(x_pdm, 1, decimation, window=b)
     return y
-
 
 cic_dtype = np.int16
 @njit()
 def cic(x_pdm, decimation, stages):
     comb_buffer = np.zeros(stages, dtype=cic_dtype)
+    tmp = np.zeros(stages, dtype=cic_dtype)
     int_buffer = np.zeros(stages, dtype=cic_dtype)
 
     N = x_pdm.shape[0] // decimation
     y = np.zeros(N, dtype=cic_dtype)
-    int_out = np.zeros(1, dtype=cic_dtype)
     for n in range(N):
         for m in range(decimation):
             idx = n*decimation + m
-            int_out[0] = x_pdm[idx] + np.sum(int_buffer)
-            int_buffer[1:] = int_buffer[:1]
-            int_buffer[0] = int_out[0]
-            
-        y[n] = int_out[0] - np.sum(comb_buffer)
+            int_buffer[1:] = int_buffer[1:] + int_buffer[:-1]
+            int_buffer[0] = int_buffer[0] + x_pdm[idx]
 
-        comb_buffer[1:]= comb_buffer[:-1]
+        tmp[0] = int_buffer[-1] - comb_buffer[0]
+        tmp[1:] = tmp[:-1] - comb_buffer[1:]
+
+        y[n] = tmp[-1]
+
+        comb_buffer[1:] = tmp[:-1]
         comb_buffer[0] = int_buffer[-1]
-
-    z = y.astype(np.float32) / decimation
+        
+    z = y.astype(np.float32) / (decimation ** stages)
     return z
 
 # run cic once so that numba can do its thing
