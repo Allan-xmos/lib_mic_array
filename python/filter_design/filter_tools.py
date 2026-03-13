@@ -47,7 +47,14 @@ def process_pdm(pdm_signal, coeffs):
 def normalise_coeffs(coeffs):
     """for unity gain at DC, just normalise by the sum of the coefficients
     """
-    return coeffs.astype(np.float64)/np.sum(coeffs.astype(np.float64))
+    tap_sum = np.sum(coeffs.astype(np.float64))
+    if tap_sum != 0:
+        # symmetric filter
+        return coeffs.astype(np.float64)/tap_sum
+    else:
+        # antisymmetric filter, normalisation will fail, return unnormalised coefficients
+        warnings.warn("sum of coefficients is 0, normalisation will fail, returning unnormalised coefficients")
+        return coeffs.astype(np.float64)/np.max(np.abs(coeffs.astype(np.float64)))
 
 
 def moving_average_filter(decimation_ratio, n_stages):

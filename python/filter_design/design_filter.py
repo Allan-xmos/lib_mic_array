@@ -377,6 +377,25 @@ def small_768k_to_12k_filter(int_coeffs: bool):
 
     return coeffs
 
+
+def small_768k_to_16k_filter(int_coeffs: bool):
+    fs_0 = 768000
+    decimations = [32, 1.5]
+
+    # stage 1 parameters
+    ma_stages = 5
+
+    # stage 2 parameters
+    cutoff = 7000
+    transition_bandwidth = 1000
+    taps_2 = 48
+    fir_window = ("kaiser", 6)
+    stage_2 = stage_params(cutoff, transition_bandwidth, taps_2, fir_window)
+
+    coeffs = design_2_stage(fs_0, decimations, ma_stages, stage_2, int_coeffs=int_coeffs)
+
+    return coeffs
+
 def main():
     coeffs = small_2_stage_filter(int_coeffs=True)
     out_path = "small_2_stage_filter_int.pkl"
