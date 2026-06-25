@@ -56,7 +56,7 @@ class MicArrayDevice(DeviceContext):
     if sample_count_override:
       sample_count = sample_count_override
     else:
-      sample_count = signal.len // ( 32 * self.param["s2.dec_factor"] * self.param["s3.dec_factor"])
+      sample_count = signal.len // (self.param["s1.dec_factor"] * self.param["s2.dec_factor"] * self.param["s3.dec_factor"])
 
     device_output = np.zeros((self.param["channels"], sample_count), dtype=np.int32)
 

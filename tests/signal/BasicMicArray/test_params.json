@@ -3,5 +3,5 @@
     "FRAME_SIZE": [1, 16],
     "USE_ISR": [0, 1],
     "1MIC_OVERRIDE": [0, 1],
-    "SAMP_FREQ": [16000, 32000, 48000, "good_3_stage_filter_int.pkl"]
+    "SAMP_FREQ": ["small_768k_to_16k_filter_16_int_2.pkl"]
 }

@@ -377,6 +377,24 @@ def small_768k_to_12k_filter(int_coeffs: bool):
 
     return coeffs
 
+def small_768k_to_16k_filter(int_coeffs: bool):
+    fs_0 = 768000
+    decimations = [32, 1.5]
+
+    # stage 1 parameters
+    ma_stages = 5
+
+    # stage 2 parameters
+    cutoff = 7000
+    transition_bandwidth = 1000
+    taps_2 = 48
+    fir_window = ("kaiser", 6)
+    stage_2 = stage_params(cutoff, transition_bandwidth, taps_2, fir_window)
+
+    coeffs = design_2_stage(fs_0, decimations, ma_stages, stage_2, int_coeffs=int_coeffs)
+
+    return coeffs
+
 def main():
     coeffs = small_2_stage_filter(int_coeffs=True)
     out_path = "small_2_stage_filter_int.pkl"
@@ -410,4 +428,50 @@ def main():
     ft.save_packed_filter(out_path, coeffs)
 
 if __name__ == "__main__":
-    main()
+ 
+    int_coeffs = True
+    fs_0 = 768000
+    decimations = [16, 3]
+    fs_1 = fs_0 / decimations[0]
+    fs_2 = fs_1 / decimations[1]
+
+    # stage 1 parameters
+    ma_stages = 5
+
+    # stage 2 parameters
+    cutoff = 7000
+    transition_bandwidth = 1000
+    taps_2 = 48
+    fir_window = ("kaiser", 6)
+    stage_2 = stage_params(cutoff, transition_bandwidth, taps_2, fir_window)
+
+    coeffs = design_2_stage(fs_0, decimations, ma_stages, stage_2, int_coeffs=int_coeffs)
+
+    out_path = "small_768k_to_16k_filter_16_int.pkl"
+    ft.save_packed_filter(out_path, coeffs)
+
+    import plot_coeffs as pc
+    import matplotlib.pyplot as plt
+    ax0 = pc.plot_stage(coeffs[0], fs_0, fs_2)
+    ax1 = pc.plot_stage(coeffs[1], fs_1, fs_2)
+
+    ax2 = pc.plot_filters(coeffs, fs_0)
+
+    ma_stages = 6
+    coeffs = design_2_stage(fs_0, decimations, ma_stages, stage_2, int_coeffs=int_coeffs)
+
+    out_path = "small_768k_to_16k_filter_16_int_2.pkl"
+    ft.save_packed_filter(out_path, coeffs)
+
+    pc.plot_stage(coeffs[0], fs_0, fs_2, axs=ax0)
+    pc.plot_stage(coeffs[1], fs_1, fs_2, axs=ax1)
+    pc.plot_filters(coeffs, fs_0, axs=ax2)
+
+    # coeffs = small_768k_to_12k_filter(int_coeffs=True)
+    # out_path = "small_768k_to_12k_filter_int.pkl"
+    # ft.save_packed_filter(out_path, coeffs)
+
+    # pc.plot_stage(coeffs[0], fs_0, fs_2, axs=ax0)
+    # pc.plot_stage(coeffs[1], fs_1, fs_2, axs=ax1)
+
+    plt.show()

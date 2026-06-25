@@ -89,7 +89,7 @@ class Test_Stage2(object):
     with DecimatorDevice(xe_path, extra_xrun_args="--id 0") as dev:
 
       assert dev.param["channels"] == chans
-      assert dev.param["s1.dec_factor"] == 32
+      assert dev.param["s1.dec_factor"] == 16
       assert dev.param["s1.tap_count"] == 256
       assert dev.param["s2.dec_factor"] == s2_df
       assert dev.param["s2.tap_count"] == s2_taps

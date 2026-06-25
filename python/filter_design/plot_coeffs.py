@@ -53,9 +53,11 @@ def plot_stage(coeff_decim: list, fs_0, fs_final, axs=None):
     # calculate sum of all tha aliases
     ars = np.abs(response)
     response_decim = np.copy(ars[:nfft])
-    for n in range(1, decim_rate):
+    for n in range(1, int(np.ceil(decim_rate))):
         if n % 2 == 0:
             response_decim += ars[n*nfft:(n+1)*nfft]
+        elif decim_rate == 1.5:
+            response_decim[nfft//2:] += np.flip(ars[n*nfft:(n+1)*nfft])
         else:
             response_decim += np.flip(ars[n*nfft:(n+1)*nfft])
 

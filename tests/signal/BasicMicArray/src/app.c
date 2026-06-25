@@ -147,7 +147,7 @@ void get_filter_config(unsigned fs, filt_config_t *cfg) {
 #else
   cfg->stg3_tap_count = 0;
   cfg->stg3_decimation_factor = 1; // for PDM RX block size calculation in the test to work for both 2 and 3 stage filters
-  cfg->stg3_coef_ptr = nullptr;
+  cfg->stg3_coef_ptr = NULL;
   cfg->stg3_shr = 0;
 #endif
 #endif
