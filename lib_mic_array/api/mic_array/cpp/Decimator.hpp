@@ -28,6 +28,20 @@ namespace  mic_array {
 static inline
 void shift_buffer(uint32_t* buff);
 
+/**
+ * @brief Advance 8-word (256-bit) PDM history by 16 bits.
+ *
+ * Inserts the lower 16 bits of @p new_half into buff[0][31:16] (the
+ * newest 16 bit positions) and shifts the remaining 240 bits to
+ * older positions.  Bit ordering within @p new_half: bit 0 is the
+ * oldest of the 16 new PDM samples, bit 15 is the newest.
+ *
+ * @param buff      8-word PDM history.
+ * @param new_half  16 new PDM samples in bits [15:0].
+ */
+static inline
+void shift_buffer_16(uint32_t* buff, uint32_t new_half);
+
 
 /**
  * @brief PDM Decimator (1, 2, or 3 stage)
@@ -118,31 +132,27 @@ class Decimator
     /**
      * @brief Process one block of PDM data through the 2-stage decimator.
      *
-     * Processes a block of PDM data to produce an output sample from the
-     * second stage decimator.
+     * Uses 16-bit (half-word) stage-1 stepping: each 32-bit PDM word is
+     * split into two 16-bit halves (lower = older, upper = newer), each
+     * half producing one stage-1 output.  With stage2.decimation_factor
+     * PDM words per block, this yields two PCM output samples per block.
      *
-     * `pdm_block` contains exactly enough PDM samples to produce a single
-     * output sample from the second stage decimator. The layout of `pdm_block`
-     * should (effectively) be:
-     *
+     * `pdm_block` layout:
      * @code{.cpp}
      *  struct {
      *    struct {
-     *      // lower word indices are older samples.
-     *      // less significant bits in a word are older samples.
-     *      uint32_t samples[S2_DEC_FACTOR];
-     *    } microphone[MIC_COUNT]; // mic channels are in ascending order
+     *      uint32_t words[S2_DEC_FACTOR]; // lower word indices are older
+     *    } microphone[MIC_COUNT];
      *  } pdm_block;
      * @endcode
      *
-     * A single output sample from the second stage decimator is computed and
-     * written to `sample_out[]`.
+     * Two output samples are written to `sample_out[0..1][mic]`.
      *
-     * @param sample_out  Output sample vector.
+     * @param sample_out  [2][MIC_COUNT] output sample array.
      * @param pdm_block   PDM data to be processed.
      */
     void ProcessBlockTwoStage(
-        int32_t sample_out[MIC_COUNT],
+        int32_t sample_out[2][MIC_COUNT],
         uint32_t *pdm_block);
 
     /**
@@ -219,21 +229,37 @@ void mic_array::Decimator<MIC_COUNT>
 template <unsigned MIC_COUNT>
 void mic_array::Decimator<MIC_COUNT>
     ::ProcessBlockTwoStage(
-        int32_t sample_out[MIC_COUNT],
+        int32_t sample_out[2][MIC_COUNT],
         uint32_t *pdm_block)
 {
   for(unsigned mic = 0; mic < MIC_COUNT; mic++){
     uint32_t* hist = this->stage1.pdm_history_ptr + (mic * this->stage1.pdm_history_sz);
+    unsigned s2_count = this->stage2.decimation_factor - 1;
+    unsigned out_idx = 0;
 
     for(unsigned k = 0; k < this->stage2.decimation_factor; k++){
-      hist[0] = *(pdm_block + (mic*this->stage2.decimation_factor + k));
-      int32_t streamA_sample = fir_1x16_bit(hist, this->stage1.filter_coef);
-      shift_buffer(hist);
+      uint32_t word = *(pdm_block + (mic * this->stage2.decimation_factor + k));
 
-      if(k < (this->stage2.decimation_factor-1)){
-        filter_fir_s32_add_sample(&this->stage2.filters[mic], streamA_sample);
+      // lower half: older 16 PDM bits (bits 0..15 of word)
+      shift_buffer_16(hist, word & 0xFFFF);
+      int32_t s1 = fir_1x16_bit(hist, this->stage1.filter_coef);
+      if(s2_count){
+        filter_fir_s32_add_sample(&this->stage2.filters[mic], s1);
+        s2_count--;
       } else {
-        sample_out[mic] = filter_fir_s32(&this->stage2.filters[mic], streamA_sample);
+        sample_out[out_idx++][mic] = filter_fir_s32(&this->stage2.filters[mic], s1);
+        s2_count = this->stage2.decimation_factor - 1;
+      }
+
+      // upper half: newer 16 PDM bits (bits 16..31 of word)
+      shift_buffer_16(hist, word >> 16);
+      s1 = fir_1x16_bit(hist, this->stage1.filter_coef);
+      if(s2_count){
+        filter_fir_s32_add_sample(&this->stage2.filters[mic], s1);
+        s2_count--;
+      } else {
+        sample_out[out_idx++][mic] = filter_fir_s32(&this->stage2.filters[mic], s1);
+        s2_count = this->stage2.decimation_factor - 1;
       }
     }
   }
@@ -309,4 +335,15 @@ void mic_array::shift_buffer(uint32_t* buff)
     buff[k] = buff[k-1];
   }
   #endif
+}
+
+static inline
+void mic_array::shift_buffer_16(uint32_t* buff, uint32_t new_half)
+{
+  // Shift the 256-bit history right by 16 bits and insert new_half[15:0]
+  // into the newest position (buff[0][31:16]).
+  for (unsigned k = 7; k > 0; k--) {
+    buff[k] = (buff[k] >> 16) | (buff[k-1] << 16);
+  }
+  buff[0] = (buff[0] >> 16) | (new_half << 16);
 }

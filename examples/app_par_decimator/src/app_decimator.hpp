@@ -186,7 +186,7 @@ class MyTwoStageDecimator
      * @param pdm_block   PDM data to be processed.
      */
     void ProcessBlockTwoStage(
-        int32_t sample_out[MIC_COUNT],
+        int32_t sample_out[2][MIC_COUNT],
         uint32_t pdm_block[BLOCK_SIZE]);
 
     void ProcessBlockSingleStage(
@@ -225,11 +225,11 @@ void par_mic_array::MyTwoStageDecimator<MIC_COUNT,S2_DEC_FACTOR,S2_TAP_COUNT>::I
 template <unsigned MIC_COUNT, unsigned S2_DEC_FACTOR, unsigned S2_TAP_COUNT>
 void par_mic_array::MyTwoStageDecimator<MIC_COUNT,S2_DEC_FACTOR,S2_TAP_COUNT>
     ::ProcessBlockTwoStage(
-        int32_t sample_out[MIC_COUNT],
+        int32_t sample_out[2][MIC_COUNT],
         uint32_t pdm_block[BLOCK_SIZE])
 {
   decimator_subtask_run(MIC_COUNT,
     (uint32_t*)this->stage1.pdm_history, this->stage1.filter_coef,
     S2_DEC_FACTOR, this->stage2.filters,
-    pdm_block, sample_out);
+    pdm_block, (int32_t*)sample_out);
 }

@@ -91,16 +91,34 @@ void decimator_subtask(
   for (unsigned mic = mic_start_index; mic < mic_count; mic += mic_increment_index) {
     const unsigned pdm_history_elems_per_mic = 8; // See "pdm_history" in decimator class template
     uint32_t* hist = &s1_hist[mic * pdm_history_elems_per_mic];
+    unsigned s2_count = s2_dec_factor - 1;
+    unsigned out_idx = 0;
 
     for (unsigned k = 0; k < s2_dec_factor; k++) {
-      hist[0] = pdm_data[mic][k];
-      int32_t streamA_sample = fir_1x16_bit(hist, s1_filter_coef);
-      shift_buffer(hist);
+      uint32_t word = pdm_data[mic][k];
 
-      if (k < (s2_dec_factor - 1)) {
-        filter_fir_s32_add_sample(&s2_filters[mic], streamA_sample);
+      // lower half: older 16 PDM bits (bits 0..15)
+      shift_buffer_16(hist, word & 0xFFFF);
+      int32_t s1 = fir_1x16_bit(hist, s1_filter_coef);
+      if (s2_count) {
+        filter_fir_s32_add_sample(&s2_filters[mic], s1);
+        s2_count--;
       } else {
-        sample_out[mic] = filter_fir_s32(&s2_filters[mic], streamA_sample);
+        sample_out[out_idx * mic_count + mic] = filter_fir_s32(&s2_filters[mic], s1);
+        out_idx++;
+        s2_count = s2_dec_factor - 1;
+      }
+
+      // upper half: newer 16 PDM bits (bits 16..31)
+      shift_buffer_16(hist, word >> 16);
+      s1 = fir_1x16_bit(hist, s1_filter_coef);
+      if (s2_count) {
+        filter_fir_s32_add_sample(&s2_filters[mic], s1);
+        s2_count--;
+      } else {
+        sample_out[out_idx * mic_count + mic] = filter_fir_s32(&s2_filters[mic], s1);
+        out_idx++;
+        s2_count = s2_dec_factor - 1;
       }
     }
   }
@@ -127,4 +145,19 @@ void shift_buffer(uint32_t* buff)
     buff[k] = buff[k-1];
   }
   #endif
+}
+
+/**
+ * @brief Advance 8-word PDM history by 16 bits.
+ *
+ * Inserts new_half[15:0] into buff[0][31:16] (newest PDM positions) and
+ * shifts the remaining 240 bits to older positions.
+ */
+static inline
+void shift_buffer_16(uint32_t* buff, uint32_t new_half)
+{
+  for (unsigned k = 7; k > 0; k--) {
+    buff[k] = (buff[k] >> 16) | (buff[k-1] << 16);
+  }
+  buff[0] = (buff[0] >> 16) | (new_half << 16);
 }

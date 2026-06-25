@@ -250,14 +250,18 @@ void mic_array::MicArray<MIC_COUNT,TDecimator,TPdmRx,
                                    TSampleFilter,
                                    TOutputHandler>::ThreadEntryTwoStage()
 {
-  int32_t sample_out[MIC_COUNT] = {0};
+  // ProcessBlockTwoStage uses 16-bit stage-1 stepping and produces 2 PCM
+  // samples per PDM block (one per stage-1 decimation factor / 2).
+  int32_t sample_out[2][MIC_COUNT] = {};
   volatile bool shutdown = false;
 
   while(!shutdown){
     uint32_t *pdm_samples = PdmRx.GetPdmBlock();
     Decimator.ProcessBlockTwoStage(sample_out, pdm_samples);
-    SampleFilter.Filter(sample_out);
-    shutdown = OutputHandler.OutputSample(sample_out);
+    for(int i = 0; i < 2 && !shutdown; i++){
+      SampleFilter.Filter(sample_out[i]);
+      shutdown = OutputHandler.OutputSample(sample_out[i]);
+    }
   }
   PdmRx.Shutdown();
   OutputHandler.CompleteShutdown(); // Exchange end token with the app to close channel and indicate completion.
